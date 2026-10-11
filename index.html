@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0c0b">
+  <meta name="description" content="Hangbeat 7/3 fingerboard repeater timer. Install and use offline.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Hangbeat · Fingerboard Timer</title>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div>
+        <h1>HANGBEAT</h1>
+        <p>Fingerboard repeaters · 7 / 3</p>
+      </div>
+      <button id="voice-button" class="round-button" type="button" aria-label="Turn voice off" aria-pressed="true" title="Voice cues">
+        <svg class="speaker-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12 0a4 4 0 0 1 0 6m2-9a8 8 0 0 1 0 12"/></svg>
+        <svg class="muted-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12 0 5 6m0-6-5 6M3 3l18 18"/></svg>
+      </button>
+    </header>
+
+    <section class="timer" id="timer" aria-label="Ready, 7 seconds remaining">
+      <svg class="timer-ring" viewBox="0 0 320 320" aria-hidden="true">
+        <circle class="track" cx="160" cy="160" r="139"/>
+        <circle class="progress" id="progress-ring" cx="160" cy="160" r="139" pathLength="100"/>
+      </svg>
+      <div class="timer-glow" aria-hidden="true"></div>
+      <div class="timer-content">
+        <div class="phase" id="phase">READY</div>
+        <div class="seconds" id="seconds">7</div>
+      </div>
+    </section>
+
+    <section class="repetitions" aria-label="Set progress">
+      <div class="repetition-labels">
+        <span id="set-label">SET 1 · HANGS</span>
+        <span id="repetition-count">0 / 5</span>
+      </div>
+      <div class="markers" id="markers"></div>
+    </section>
+
+    <div class="controls" id="controls">
+      <button class="secondary-button reset-button" id="reset-button" type="button" aria-label="Reset session" title="Reset session">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1-.1 4M4 4v6h6"/></svg>
+      </button>
+      <button class="primary-button" id="primary-button" type="button"><span id="primary-icon">▶</span><span id="primary-title">START SET 1</span></button>
+    </div>
+    <p class="status" id="status">Set your grip and start when ready</p>
+
+    <section class="setup" aria-labelledby="setup-title">
+      <div class="setup-heading"><h2 id="setup-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16M8 5v4m8 1v4m-5 1v4"/></svg>SETUP</h2><span id="duration">PER SET · 50s</span></div>
+      <div class="divider"></div>
+      <div class="setting-row">
+        <div><strong>Hangs per set</strong><small>7s hang · 3s rest</small></div>
+        <div class="stepper" role="group" aria-label="Hangs per set">
+          <button id="hang-minus" type="button" aria-label="Decrease hangs per set">−</button>
+          <output id="hang-value" aria-live="polite">5</output>
+          <button id="hang-plus" type="button" aria-label="Increase hangs per set">+</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div><strong>Setup time</strong><small>Time to find and settle on the edge</small></div>
+        <div class="stepper" role="group" aria-label="Setup time">
+          <button id="setup-minus" type="button" aria-label="Decrease setup time">−</button>
+          <output id="setup-value" aria-live="polite">3s</output>
+          <button id="setup-plus" type="button" aria-label="Increase setup time">+</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span id="completed-sets">0 sets completed</span>
+      <button id="install-button" type="button">Install app</button>
+    </footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
