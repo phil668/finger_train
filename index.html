@@ -14,6 +14,7 @@
 </head>
 <body>
   <main class="app">
+    <section class="screen" id="screen-timer" aria-label="Repeater timer">
     <header class="header">
       <div>
         <h1>HANGBEAT</h1>
@@ -78,7 +79,82 @@
       <span id="completed-sets">0 sets completed</span>
       <button id="install-button" type="button">Install app</button>
     </footer>
+    </section>
+
+    <section class="screen" id="screen-dashboard" aria-labelledby="dashboard-title" hidden>
+      <header class="page-header">
+        <p class="eyebrow">HANGBEAT</p>
+        <h1 id="dashboard-title">Dashboard</h1>
+        <p>Every session, at a glance.</p>
+      </header>
+
+      <div class="summary-grid" aria-label="Training summary">
+        <div class="summary-card"><strong id="stat-days">0</strong><span>TRAINING DAYS</span></div>
+        <div class="summary-card"><strong id="stat-sets">0</strong><span>REPEATER SETS</span></div>
+        <div class="summary-card"><strong id="stat-best">—</strong><span>MONTH'S BEST</span></div>
+      </div>
+
+      <section class="calendar-card" aria-labelledby="calendar-title">
+        <div class="calendar-header">
+          <div><p class="eyebrow">TRAINING CALENDAR</p><h2 id="calendar-title"></h2></div>
+          <div class="calendar-nav">
+            <button id="month-prev" type="button" aria-label="Previous month">‹</button>
+            <button id="month-next" type="button" aria-label="Next month">›</button>
+          </div>
+        </div>
+        <div class="calendar-weekdays" aria-hidden="true"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
+        <div class="calendar-grid" id="calendar-grid" aria-label="Training days"></div>
+        <div class="calendar-legend"><span><i class="legend-dot repeater-dot"></i>Repeater set</span><span><i class="legend-dot hang-dot"></i>Max hang</span></div>
+      </section>
+
+      <section class="day-card" aria-labelledby="selected-day-title">
+        <div class="day-heading"><h2 id="selected-day-title"></h2><button id="calendar-today" type="button">Today</button></div>
+        <div id="selected-day-events"></div>
+      </section>
+    </section>
+
+    <section class="screen" id="screen-max-hang" aria-labelledby="max-hang-title" hidden>
+      <header class="page-header">
+        <p class="eyebrow">FINGER STRENGTH</p>
+        <h1 id="max-hang-title">Max Hang</h1>
+        <p>Start when you're on the edge. Stop when you let go.</p>
+      </header>
+
+      <div class="max-timer" id="max-timer" aria-label="Max hang test ready">
+        <div class="max-timer-inner">
+          <span id="max-phase">READY</span>
+          <output id="max-time" aria-live="off">0.0</output>
+          <span class="max-unit">ELAPSED TIME</span>
+        </div>
+      </div>
+
+      <div class="max-actions">
+        <button id="max-reset" class="secondary-button max-reset" type="button" aria-label="Reset max hang test" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1-.1 4M4 4v6h6"/></svg>
+        </button>
+        <button id="max-primary" class="primary-button" type="button"><span id="max-primary-icon">▶</span><span id="max-primary-label">START HANG</span></button>
+      </div>
+      <p class="status" id="max-status" role="status">Tap start when your fingers are on the edge</p>
+
+      <div class="max-stats">
+        <div><span>PERSONAL BEST</span><strong id="max-best">—</strong></div>
+        <div><span>LAST ATTEMPT</span><strong id="max-last">—</strong></div>
+      </div>
+      <p class="local-note">Results are saved on this device and appear in Dashboard.</p>
+    </section>
   </main>
+
+  <nav class="tabbar" aria-label="Main navigation">
+    <button type="button" class="tab active" data-tab="timer" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 13V8m0 5 3 2M9 2h6m-3 0v3"/></svg><span>Timer</span>
+    </button>
+    <button type="button" class="tab" data-tab="dashboard">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4m8-4v4m-8 8h2m4 0h2m-8 4h2"/></svg><span>Dashboard</span>
+    </button>
+    <button type="button" class="tab" data-tab="max-hang">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17c2-4 4-5 6-5l1-7a2 2 0 0 1 4 0v5l2-2a2 2 0 0 1 3 2v5c0 4-3 7-7 7H9c-3 0-5-2-5-5Z"/></svg><span>Max Hang</span>
+    </button>
+  </nav>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="./app.js"></script>
 </body>

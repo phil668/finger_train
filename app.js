@@ -1,4 +1,6 @@
 import { RepeaterTimer } from './src/timer.js';
+import { TrainingLog, calendarDays, formatHang, localDayKey, monthSummary } from './src/training.js';
+import { MaxHangTest, formatStopwatch } from './src/max-hang.js';
 
 const SETTINGS_KEY = 'hangbeat-timer-v1';
 const ring = document.getElementById('progress-ring');
@@ -12,6 +14,13 @@ let wakeLock = null;
 let toastTimeout = null;
 let markerKey = '';
 let timer;
+const trainingLog = new TrainingLog();
+const maxHang = new MaxHangTest();
+let lastLoggedSets = 0;
+let maxAttemptSaved = false;
+let activeTab = 'timer';
+let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let selectedDay = localDayKey();
 
 function readSettings() {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) ?? {}; }
@@ -52,7 +61,7 @@ async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator && !wakeLock) {
       wakeLock = await navigator.wakeLock.request('screen');
-      if (!timer.running) releaseWakeLock();
+      if (!timer.running && !maxHang.running) releaseWakeLock();
     }
   } catch { /* Not all browsers support keeping the display awake. */ }
 }
@@ -64,6 +73,12 @@ function releaseWakeLock() {
 
 function updateView() {
   if (!timer) return;
+  if (timer.completedSets < lastLoggedSets) lastLoggedSets = timer.completedSets;
+  if (timer.phase === 'setComplete' && timer.completedSets > lastLoggedSets) {
+    trainingLog.addRepeater(timer.repetitionsPerSet);
+    lastLoggedSets = timer.completedSets;
+    if (activeTab === 'dashboard') renderDashboard();
+  }
   const timerElement = document.getElementById('timer');
   timerElement.className = `timer ${timer.phase}`;
   timerElement.setAttribute('aria-label', `${timer.phaseLabel}, ${Math.ceil(timer.remaining)} seconds remaining, ${timer.statusLine}`);
@@ -100,7 +115,7 @@ function updateView() {
     ).join('');
     markerKey = nextMarkerKey;
   }
-  if (!timer.running && wakeLock) releaseWakeLock();
+  if (!timer.running && !maxHang.running && wakeLock) releaseWakeLock();
 }
 
 timer = new RepeaterTimer(updateView, speak);
@@ -126,7 +141,7 @@ resetButton.addEventListener('click', () => {
     window.speechSynthesis?.cancel();
     timer.reset();
   }
-  releaseWakeLock();
+  if (!maxHang.running) releaseWakeLock();
 });
 
 voiceButton.addEventListener('click', () => {
@@ -163,10 +178,173 @@ installButton.addEventListener('click', async () => {
 window.addEventListener('appinstalled', () => { installButton.hidden = true; });
 if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) installButton.hidden = true;
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && timer.running) requestWakeLock();
+  if (document.visibilityState === 'visible' && (timer.running || maxHang.running)) requestWakeLock();
 });
 if (import.meta.env.DEV && 'serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(registrations => {
     for (const registration of registrations) registration.unregister();
   }).catch(() => {});
 }
+
+function renderDashboard() {
+  const year = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+  const summary = monthSummary(trainingLog.records, year, month);
+  document.getElementById('stat-days').textContent = summary.days;
+  document.getElementById('stat-sets').textContent = summary.sets;
+  document.getElementById('stat-best').textContent = summary.bestHangMs ? formatHang(summary.bestHangMs) : '—';
+  document.getElementById('calendar-title').textContent = calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const recordsByDay = new Map();
+  for (const record of trainingLog.records) {
+    if (!recordsByDay.has(record.day)) recordsByDay.set(record.day, []);
+    recordsByDay.get(record.day).push(record);
+  }
+
+  const cells = calendarDays(year, month).map(day => {
+    if (day === null) {
+      const spacer = document.createElement('span');
+      spacer.className = 'calendar-spacer';
+      return spacer;
+    }
+    const date = new Date(year, month, day);
+    const key = localDayKey(date);
+    const records = recordsByDay.get(key) ?? [];
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'calendar-day';
+    if (key === localDayKey()) button.classList.add('today');
+    if (key === selectedDay) button.classList.add('selected');
+    button.setAttribute('aria-pressed', String(key === selectedDay));
+    button.setAttribute('aria-label', `${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, ${records.length} activities`);
+    const number = document.createElement('span');
+    number.textContent = day;
+    button.append(number);
+    const dots = document.createElement('span');
+    dots.className = 'calendar-dots';
+    if (records.some(record => record.type === 'repeater')) {
+      const dot = document.createElement('i');
+      dot.className = 'legend-dot repeater-dot';
+      dots.append(dot);
+    }
+    if (records.some(record => record.type === 'maxHang')) {
+      const dot = document.createElement('i');
+      dot.className = 'legend-dot hang-dot';
+      dots.append(dot);
+    }
+    button.append(dots);
+    button.addEventListener('click', () => {
+      selectedDay = key;
+      renderDashboard();
+    });
+    return button;
+  });
+  document.getElementById('calendar-grid').replaceChildren(...cells);
+
+  const [selectedYear, selectedMonth, selectedDate] = selectedDay.split('-').map(Number);
+  const selected = new Date(selectedYear, selectedMonth - 1, selectedDate);
+  document.getElementById('selected-day-title').textContent = selected.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const events = (recordsByDay.get(selectedDay) ?? []).slice().sort((a, b) => b.at.localeCompare(a.at));
+  const eventElements = events.map(record => {
+    const item = document.createElement('div');
+    item.className = `day-event ${record.type}`;
+    const label = document.createElement('span');
+    label.textContent = record.type === 'repeater' ? `${record.repetitions} × 7/3 hangs` : `Max hang · ${formatHang(record.durationMs)}`;
+    const time = document.createElement('time');
+    time.dateTime = record.at;
+    time.textContent = new Date(record.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    item.append(label, time);
+    return item;
+  });
+  if (!eventElements.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-day';
+    empty.textContent = 'No training logged for this day.';
+    eventElements.push(empty);
+  }
+  document.getElementById('selected-day-events').replaceChildren(...eventElements);
+}
+
+function renderMaxHang() {
+  const running = maxHang.running;
+  document.getElementById('max-timer').className = `max-timer ${maxHang.phase}`;
+  document.getElementById('max-timer').setAttribute('aria-label', `Max hang ${maxHang.phase}, ${(maxHang.elapsedMs / 1000).toFixed(1)} seconds`);
+  document.getElementById('max-phase').textContent = running ? 'HANGING' : maxHang.phase === 'result' ? 'RESULT' : 'READY';
+  document.getElementById('max-time').textContent = formatStopwatch(maxHang.elapsedMs);
+  document.getElementById('max-primary-icon').textContent = running ? '■' : '▶';
+  document.getElementById('max-primary-label').textContent = running ? 'STOP & SAVE' : maxHang.phase === 'result' ? 'TRY AGAIN' : 'START HANG';
+  document.getElementById('max-reset').disabled = maxHang.phase === 'ready';
+  document.getElementById('max-reset').setAttribute('aria-label', running ? 'Cancel max hang test' : 'Reset max hang test');
+  document.getElementById('max-status').textContent = running ? 'Stop when you let go of the edge' : maxHang.phase === 'result'
+    ? maxAttemptSaved ? 'Saved to your training calendar' : 'Attempt too short to save'
+    : 'Tap start when your fingers are on the edge';
+  document.getElementById('max-best').textContent = trainingLog.bestHangMs ? formatHang(trainingLog.bestHangMs) : '—';
+  document.getElementById('max-last').textContent = trainingLog.lastHangMs ? formatHang(trainingLog.lastHangMs) : '—';
+  if (!running && !timer.running && wakeLock) releaseWakeLock();
+}
+
+function showTab(tab) {
+  activeTab = ['timer', 'dashboard', 'max-hang'].includes(tab) ? tab : 'timer';
+  for (const name of ['timer', 'dashboard', 'max-hang']) {
+    document.getElementById(`screen-${name}`).hidden = name !== activeTab;
+  }
+  for (const button of document.querySelectorAll('.tab')) {
+    const selected = button.dataset.tab === activeTab;
+    button.classList.toggle('active', selected);
+    if (selected) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  }
+  if (activeTab === 'dashboard') renderDashboard();
+  if (activeTab === 'max-hang') renderMaxHang();
+  window.scrollTo(0, 0);
+}
+
+for (const button of document.querySelectorAll('.tab')) {
+  button.addEventListener('click', () => {
+    const tab = button.dataset.tab;
+    if (location.hash !== `#${tab}`) location.hash = tab;
+    showTab(tab);
+  });
+}
+window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
+showTab(location.hash.slice(1));
+
+document.getElementById('month-prev').addEventListener('click', () => {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+  selectedDay = localDayKey(calendarMonth);
+  renderDashboard();
+});
+document.getElementById('month-next').addEventListener('click', () => {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+  selectedDay = localDayKey(calendarMonth);
+  renderDashboard();
+});
+document.getElementById('calendar-today').addEventListener('click', () => {
+  const today = new Date();
+  calendarMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  selectedDay = localDayKey(today);
+  renderDashboard();
+});
+
+document.getElementById('max-primary').addEventListener('click', () => {
+  if (maxHang.running) {
+    const durationMs = maxHang.stop();
+    maxAttemptSaved = durationMs >= 100;
+    if (maxAttemptSaved) {
+      trainingLog.addMaxHang(durationMs);
+      if (activeTab === 'dashboard') renderDashboard();
+    }
+  } else {
+    maxHang.start();
+    maxAttemptSaved = false;
+    requestWakeLock();
+  }
+  renderMaxHang();
+});
+document.getElementById('max-reset').addEventListener('click', () => {
+  maxHang.reset();
+  maxAttemptSaved = false;
+  renderMaxHang();
+});
+setInterval(() => { if (maxHang.running && activeTab === 'max-hang') renderMaxHang(); }, 100);
+renderMaxHang();
